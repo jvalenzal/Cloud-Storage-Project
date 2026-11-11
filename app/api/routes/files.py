@@ -1,4 +1,4 @@
-"""Endpoints REST"""
+"""Definición de endpoints REST para FastAPI"""
 
 import uuid
 from urllib.parse import quote
