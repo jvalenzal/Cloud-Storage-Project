@@ -1,4 +1,4 @@
-"""Errores de aplicación. Cada uno sabe qué código HTTP le corresponde."""
+"""Módulo de definición de errores de la aplicación"""
 
 
 class AppError(Exception):
