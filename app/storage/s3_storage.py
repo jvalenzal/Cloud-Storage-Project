@@ -1,8 +1,7 @@
 """Módulo de acceso al almacenamiento de objetos. Toda la interacción con S3/MinIO está encapsulada aquí
 
 La lógica del servicio sólo depende del protocolo ``ObjectStorage``, de modo que MinIO puede 
-sustituirse por cualquier otro sistema compatible con S3 (o por otra implementación) sin tocarla.
-"""
+sustituirse por cualquier otro sistema compatible con S3 (o por otra implementación) sin tocarla"""
 
 from collections.abc import Iterator
 from typing import BinaryIO, Protocol
