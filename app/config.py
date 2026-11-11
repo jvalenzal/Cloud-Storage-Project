@@ -1,4 +1,4 @@
-"""Configuración de la aplicación leída desde variables de entorno (o un fichero .env)."""
+"""Configuración de la aplicación leída desde variables de entorno (un fichero .env)"""
 
 from functools import lru_cache
 
