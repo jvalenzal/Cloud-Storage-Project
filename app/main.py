@@ -1,4 +1,4 @@
-"""Punto de entrada de la aplicación FastAPI."""
+"""Punto de entrada de la aplicación"""
 
 import logging
 from contextlib import asynccontextmanager
