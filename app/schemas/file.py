@@ -1,4 +1,6 @@
-"""Esquemas Pydantic de entrada/salida."""
+""" Módulo de esquemas Pydantic de entrada/salida de FastAPI"""
+""" Se definen los datos que salen y entran por 
+los endpoints, se validan y se documenta la API """
 
 import uuid
 from datetime import datetime, timezone
