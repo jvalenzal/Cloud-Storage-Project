@@ -1,4 +1,4 @@
-"""Endpoints REST de archivos."""
+"""Endpoints REST"""
 
 import uuid
 from urllib.parse import quote
