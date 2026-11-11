@@ -1,4 +1,5 @@
-"""Conexión a PostgreSQL mediante SQLAlchemy."""
+"""En este archivo se define la 
+conexión a PostgreSQL mediante SQLAlchemy"""
 
 from collections.abc import Iterator
 from functools import lru_cache
