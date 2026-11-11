@@ -1,4 +1,7 @@
-"""Lógica de negocio: coordina el almacenamiento de objetos y los metadatos."""
+"""Módulo para la lógica de la aplicación
+Para cada operación que se haga se valida 
+el nombre, el tipo y el tamaño, calcula 
+el SHA-256 mientras lee el archivo, etc."""
 
 import hashlib
 import logging
@@ -120,14 +123,8 @@ class FileService:
         record = self.get(file_id)
         return Download(record=record, content=self._open(record))
 
-    # -------------------------------------------------------------- eliminar
-    def delete(self, file_id: uuid.UUID) -> None:
-        """Elimina metadatos y objeto.
-
-        El borrado del registro se prepara dentro de una transacción y sólo se
-        confirma cuando el objeto se ha eliminado: si falla el almacenamiento,
-        se deshace y el archivo sigue completo y accesible.
-        """
+    # -------------------------------------------------------------- eliminar (metadatos y objeto)
+    def delete(self, file_id: uuid.UUID) -> None:        
         record = self.get(file_id)
         try:
             self.db.delete(record)
@@ -164,7 +161,6 @@ class FileService:
 
     # ------------------------------------------------------------ auxiliares
     def _validate_filename(self, filename: str | None) -> str:
-        # Se descarta cualquier ruta que envíe el cliente; sólo se guarda el nombre.
         name = (filename or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
         if not name:
             raise InvalidInputError("El archivo debe tener un nombre")
