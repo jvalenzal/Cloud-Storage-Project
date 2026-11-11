@@ -1,4 +1,9 @@
-"""Dependencias inyectables (se pueden sustituir en las pruebas)."""
+''' Con este archivo se construyen los objectos necesarios para cada petición 
+a la base de BD usando el soporte nativo de dependencias inyectables para FastAPI '''
+
+''' Se define la sesión, el cliente de almacenamiento  y
+el FileService (que contiene la base de datos, la configuración 
+de la aplicación y de la base de datos)'''
 
 from functools import lru_cache
 
