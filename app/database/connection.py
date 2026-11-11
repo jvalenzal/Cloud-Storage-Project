@@ -1,5 +1,5 @@
-"""En este archivo se define la 
-conexión a PostgreSQL mediante SQLAlchemy"""
+"""En este archivo se define la conexión
+a la BD (PostgreSQL) mediante SQLAlchemy"""
 
 from collections.abc import Iterator
 from functools import lru_cache
@@ -25,7 +25,6 @@ def get_session_factory() -> sessionmaker[Session]:
 
 
 def get_db() -> Iterator[Session]:
-    """Dependencia de FastAPI: una sesión por petición."""
     session = get_session_factory()()
     try:
         yield session
