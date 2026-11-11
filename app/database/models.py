@@ -1,4 +1,6 @@
-"""Modelos de base de datos."""
+"""En este archivo se hace un modelo de la tabla
+de la BD como clase de Python para facilitar 
+la transferencia de metadatos"""
 
 import uuid
 from datetime import datetime, timezone
@@ -12,9 +14,8 @@ from app.database.connection import Base
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
-
+# Clase de representación de metadatos
 class FileRecord(Base):
-    """Metadatos de un archivo. El contenido binario vive en el almacenamiento de objetos."""
 
     __tablename__ = "files"
 
