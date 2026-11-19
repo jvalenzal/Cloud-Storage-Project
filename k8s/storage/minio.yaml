@@ -1,0 +1,129 @@
+# MinIO en modo distribuido: 4 pods, uno en cada nodo 1-4, cada uno con su disco.
+# Con erasure coding sobre 4 discos, el almacenamiento sigue operativo si cae un nodo.
+#
+# Service "minio-hl" (headless): da a cada pod un nombre DNS estable
+#   minio-0.minio-hl.storage.svc.cluster.local ... minio-3...
+# que MinIO usa para formar el clúster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-hl
+  namespace: storage
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/part-of: file-storage-service
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true   # los pods deben verse entre sí antes de estar "listos"
+  selector:
+    app.kubernetes.io/name: minio
+  ports:
+    - name: api
+      port: 9000
+      targetPort: api
+---
+# Service "minio": punto de acceso para la API (reparte entre los 4 pods).
+#   http://minio.storage.svc.cluster.local:9000
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: storage
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/part-of: file-storage-service
+spec:
+  selector:
+    app.kubernetes.io/name: minio
+  ports:
+    - name: api
+      port: 9000
+      targetPort: api
+    - name: console
+      port: 9001
+      targetPort: console
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: storage
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/part-of: file-storage-service
+spec:
+  serviceName: minio-hl
+  replicas: 4
+  podManagementPolicy: Parallel   # en modo distribuido los 4 pods deben arrancar a la vez
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: minio
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: minio
+        app.kubernetes.io/part-of: file-storage-service
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nodo
+                    operator: In
+                    values: ["1", "2", "3", "4"]
+        # Nunca dos pods de MinIO en el mismo nodo: perder un nodo = perder un solo disco.
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: minio
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: minio
+          # MinIO dejó de publicar imágenes oficiales; pgsty/minio es una build comunitaria.
+          image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+          args:
+            - server
+            - http://minio-{0...3}.minio-hl.storage.svc.cluster.local/data
+            - --console-address
+            - ":9001"
+          envFrom:
+            - secretRef:
+                name: minio-secret
+          ports:
+            - name: api
+              containerPort: 9000
+            - name: console
+              containerPort: 9001
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: api
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 20Gi

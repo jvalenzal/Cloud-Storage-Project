@@ -124,7 +124,7 @@ class FileService:
         return Download(record=record, content=self._open(record))
 
     # -------------------------------------------------------------- eliminar (metadatos y objeto)
-    def delete(self, file_id: uuid.UUID) -> None:        
+    def delete(self, file_id: uuid.UUID) -> None:
         record = self.get(file_id)
         try:
             self.db.delete(record)
@@ -161,6 +161,7 @@ class FileService:
 
     # ------------------------------------------------------------ auxiliares
     def _validate_filename(self, filename: str | None) -> str:
+        # Se descarta cualquier ruta que envíe el cliente; sólo se guarda el nombre.
         name = (filename or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
         if not name:
             raise InvalidInputError("El archivo debe tener un nombre")

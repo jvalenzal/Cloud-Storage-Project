@@ -1,5 +1,5 @@
 """En este archivo se define la conexión
-a la BD (PostgreSQL) mediante SQLAlchemy"""
+a la BD (MySQL) mediante SQLAlchemy"""
 
 from collections.abc import Iterator
 from functools import lru_cache
@@ -16,7 +16,9 @@ class Base(DeclarativeBase):
 
 @lru_cache
 def get_engine() -> Engine:
-    return create_engine(get_settings().database_url, pool_pre_ping=True)
+    # pool_pre_ping descarta conexiones rotas; pool_recycle las renueva antes de que MySQL
+    # cierre las inactivas (wait_timeout), evitando "MySQL server has gone away".
+    return create_engine(get_settings().database_url, pool_pre_ping=True, pool_recycle=3600)
 
 
 @lru_cache
@@ -25,6 +27,7 @@ def get_session_factory() -> sessionmaker[Session]:
 
 
 def get_db() -> Iterator[Session]:
+    """Dependencia de FastAPI: una sesión por petición."""
     session = get_session_factory()()
     try:
         yield session
