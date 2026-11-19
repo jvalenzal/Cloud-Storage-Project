@@ -64,7 +64,7 @@ spec:
         runAsUser: 1000
       containers:
         - name: api
-          image: ghcr.io/78spicy/file-storage-service:1.0.0
+          image: ghcr.io/jvalenzal/file-storage-service:1.0.0
           # Un proceso por pod: en Kubernetes se escala con réplicas, no con workers.
           command:
             - uvicorn

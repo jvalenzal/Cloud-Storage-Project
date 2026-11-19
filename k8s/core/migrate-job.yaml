@@ -37,7 +37,7 @@ spec:
         runAsUser: 1000
       containers:
         - name: migrate
-          image: ghcr.io/78spicy/file-storage-service:1.0.0
+          image: ghcr.io/jvalenzal/file-storage-service:1.0.0
           envFrom:
             - configMapRef:
                 name: api-config

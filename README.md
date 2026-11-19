@@ -128,8 +128,8 @@ en minúsculas):
 
 ```bash
 docker login ghcr.io -u <usuario de GitHub>        # con un token con permiso write:packages
-docker build -t ghcr.io/78spicy/file-storage-service:1.0.0 .
-docker push ghcr.io/78spicy/file-storage-service:1.0.0
+docker build --platform linux/amd64 -t ghcr.io/jvalenzal/file-storage-service:1.0.0 .
+docker push ghcr.io/jvalenzal/file-storage-service:1.0.0
 ```
 
 Si usas otro nombre o versión, cámbialo en `k8s/core/api.yaml` y `k8s/core/migrate-job.yaml`.
