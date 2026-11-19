@@ -1,0 +1,30 @@
+# Nodo de base de datos: PostgreSQL (metadatos de los archivos).
+#
+# Uso (en el servidor que aloje la base de datos):
+#   docker compose up -d
+#
+# Los nodos de la API se conectan a <IP de este servidor>:${POSTGRES_PORT}.
+# Limita con el cortafuegos qué equipos pueden llegar a ese puerto.
+
+name: file-storage-database
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Falta POSTGRES_DB}
+    ports:
+      - "${POSTGRES_BIND_ADDRESS:-0.0.0.0}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

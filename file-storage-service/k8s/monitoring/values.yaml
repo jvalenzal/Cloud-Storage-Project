@@ -1,0 +1,75 @@
+# Valores de Helm para kube-prometheus-stack (Prometheus + Grafana + Alertmanager),
+# con todos los componentes en el nodo 5 (máster).
+#
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   kubectl create secret generic grafana-admin -n monitoring \
+#     --from-literal=admin-user=admin --from-literal=admin-password='<clave>'
+#   helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+#     -n monitoring -f k8s/monitoring/values.yaml
+#
+# Grafana: http://<IP del nodo 5>:30300 (p. ej. por Tailscale: http://100.97.131.86:30300)
+
+prometheusOperator:
+  nodeSelector:
+    nodo: "5"
+  admissionWebhooks:
+    patch:
+      nodeSelector:
+        nodo: "5"
+
+prometheus:
+  prometheusSpec:
+    nodeSelector:
+      nodo: "5"
+    retention: 7d
+    # Recoge ServiceMonitors/PodMonitors de cualquier namespace (p. ej. la API en "core").
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+alertmanager:
+  alertmanagerSpec:
+    nodeSelector:
+      nodo: "5"
+
+kube-state-metrics:
+  nodeSelector:
+    nodo: "5"
+
+# node-exporter se ejecuta en TODOS los nodos (DaemonSet): es lo que mide CPU, RAM y disco de cada uno.
+prometheus-node-exporter:
+  tolerations:
+    - operator: Exists
+
+grafana:
+  nodeSelector:
+    nodo: "5"
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  service:
+    type: NodePort
+    nodePort: 30300
+  persistence:
+    enabled: true
+    storageClassName: local-path
+    size: 2Gi
+
+# k3s integra el plano de control en un solo proceso y no expone estas métricas por separado:
+# se desactivan para que no aparezcan como objetivos caídos.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false

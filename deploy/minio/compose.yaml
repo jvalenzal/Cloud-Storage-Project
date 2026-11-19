@@ -1,0 +1,33 @@
+# Nodo de almacenamiento: MinIO (contenido binario, API compatible con S3).
+#
+# Uso (en el servidor que aloje el almacenamiento):
+#   docker compose up -d
+#
+# Los nodos de la API se conectan a http://<IP de este servidor>:${MINIO_API_PORT}.
+# El bucket lo crea la API al arrancar (S3_AUTO_CREATE_BUCKET=true).
+
+name: file-storage-minio
+
+services:
+  minio:
+    # MinIO dejó de publicar imágenes en Docker Hub/Quay; pgsty/minio es una build comunitaria
+    # del mismo servidor. Se puede cambiar con MINIO_IMAGE.
+    image: ${MINIO_IMAGE:-pgsty/minio:RELEASE.2026-08-04T00-00-00Z}
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Falta MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Falta MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_BIND_ADDRESS:-0.0.0.0}:${MINIO_API_PORT:-9000}:9000"          # API S3
+      - "${MINIO_CONSOLE_BIND_ADDRESS:-0.0.0.0}:${MINIO_CONSOLE_PORT:-9001}:9001"  # consola web
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  miniodata:

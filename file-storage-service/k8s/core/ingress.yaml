@@ -1,0 +1,25 @@
+# Entrada desde fuera del clúster: Traefik (instalado con Helm, ver k8s/ingress/traefik-values.yaml)
+# recibe en el puerto 80 de los nodos y reenvía al Service de la API.
+#
+# Sin "host", responde a cualquier nombre o IP (p. ej. http://192.168.120.141/files).
+# Para usar un nombre, añade "host: archivos.ejemplo.local" a la regla.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: file-storage-api
+  namespace: core
+  labels:
+    app.kubernetes.io/name: file-storage-api
+    app.kubernetes.io/part-of: file-storage-service
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: file-storage-api
+                port:
+                  name: http

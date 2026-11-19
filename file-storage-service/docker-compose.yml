@@ -1,15 +1,16 @@
-# Entorno completo de DESARROLLO local: PostgreSQL + MinIO + migraciones + API.
+# Entorno completo de DESARROLLO local: MySQL + MinIO + migraciones + API.
+# (El despliegue multinodo está en deploy/ y el de Kubernetes/k3s en k8s/.)
 # Uso:
 #   cp .env.example .env            # y cambia las credenciales
 #   docker compose up -d --build    # levanta todo
-#   docker compose up -d postgres minio   # sólo los servicios de apoyo (API con uvicorn en local)
+#   docker compose up -d mysql minio   # sólo los servicios de apoyo (API con uvicorn en local)
 #
 # Docker Compose lee automáticamente el .env de este directorio. Dentro de la red de Compose
-# la API usa los nombres de servicio (postgres, minio), así que DATABASE_URL y S3_ENDPOINT_URL
+# la API usa los nombres de servicio (mysql, minio), así que DATABASE_URL y S3_ENDPOINT_URL
 # del .env (pensados para ejecutar la API en el host) se sustituyen aquí.
 
 x-app-env: &app-env
-  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?Falta POSTGRES_USER}:${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:?Falta POSTGRES_DB}
+  DATABASE_URL: mysql+pymysql://${MYSQL_USER:?Falta MYSQL_USER}:${MYSQL_PASSWORD:?Falta MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:?Falta MYSQL_DATABASE}?charset=utf8mb4
   S3_ENDPOINT_URL: http://minio:9000
   S3_ACCESS_KEY: ${MINIO_ROOT_USER:?Falta MINIO_ROOT_USER}
   S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Falta MINIO_ROOT_PASSWORD}
@@ -21,22 +22,27 @@ x-app-env: &app-env
   MAX_FILENAME_LENGTH: ${MAX_FILENAME_LENGTH:-255}
 
 services:
-  postgres:
-    image: postgres:16
+  mysql:
+    image: ${MYSQL_IMAGE:-mysql:8.4}
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Falta MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mysqldata:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      # Por TCP: durante la inicialización MySQL sólo escucha en el socket, así que esto
+      # no da "sano" hasta que el servidor definitivo está listo.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u\"$${MYSQL_USER}\" -p\"$${MYSQL_PASSWORD}\" --silent"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
+      start_period: 30s
 
   minio:
     # MinIO dejó de publicar imágenes en Docker Hub/Quay; pgsty/minio es una build comunitaria
@@ -65,7 +71,7 @@ services:
     command: ["alembic", "upgrade", "head"]
     environment: *app-env
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     restart: "no"
 
@@ -77,7 +83,7 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -85,5 +91,5 @@ services:
         condition: service_completed_successfully
 
 volumes:
-  pgdata:
+  mysqldata:
   miniodata:

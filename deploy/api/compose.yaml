@@ -1,0 +1,74 @@
+# Nodo de API: FastAPI. Puede haber varios nodos de API con el mismo compose.yaml.
+#
+# PostgreSQL y MinIO se ejecutan en otros nodos (o en este, con sus propios compose.yaml):
+# la API los localiza por IP/nombre y puerto, configurados en .env.
+#
+# Uso:
+#   docker compose build                           # construye la imagen desde la raíz del repositorio
+#   docker compose --profile migrate run --rm migrate   # crear/actualizar el esquema: UNA vez, desde UN solo nodo
+#   docker compose up -d                           # arranca la API
+#
+# En nodos sin el código fuente, usa una imagen publicada en un registro (API_IMAGE) y
+# ejecuta "docker compose pull" en lugar de "build".
+
+name: file-storage-api
+
+x-app: &app
+  image: ${API_IMAGE:-file-storage-service:latest}
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  environment:
+    DATABASE_URL: ${DATABASE_URL:?Falta DATABASE_URL}
+    S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:?Falta S3_ENDPOINT_URL}
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Falta S3_ACCESS_KEY}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:?Falta S3_SECRET_KEY}
+    S3_BUCKET: ${S3_BUCKET:-files}
+    S3_REGION: ${S3_REGION:-us-east-1}
+    S3_AUTO_CREATE_BUCKET: ${S3_AUTO_CREATE_BUCKET:-true}
+    MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE:-104857600}
+    ALLOWED_CONTENT_TYPES: ${ALLOWED_CONTENT_TYPES:-}
+    MAX_FILENAME_LENGTH: ${MAX_FILENAME_LENGTH:-255}
+
+services:
+  api:
+    <<: *app
+    restart: unless-stopped
+    command:
+      - uvicorn
+      - app.main:app
+      - --host=0.0.0.0
+      - --port=8000
+      - --workers=${API_WORKERS:-2}
+      - --proxy-headers
+      - --forwarded-allow-ips=${FORWARDED_ALLOW_IPS:-127.0.0.1}
+    ports:
+      - "${API_BIND_ADDRESS:-0.0.0.0}:${API_PORT:-8000}:8000"
+
+  # Aplica las migraciones de Alembic y termina. No arranca con "up": se lanza a mano
+  # (perfil "migrate") para que, con varios nodos de API, sólo uno toque el esquema.
+  # Espera a que PostgreSQL acepte conexiones antes de migrar.
+  migrate:
+    <<: *app
+    profiles: ["migrate"]
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        python - <<'PY'
+        import sys, time
+        from sqlalchemy import create_engine, text
+        from app.config import get_settings
+        engine = create_engine(get_settings().database_url)
+        for attempt in range(30):
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                sys.exit(0)
+            except Exception as exc:
+                print(f"Esperando a PostgreSQL ({attempt + 1}/30): {exc.__class__.__name__}", flush=True)
+                time.sleep(2)
+        sys.exit("PostgreSQL no responde")
+        PY
+        alembic upgrade head

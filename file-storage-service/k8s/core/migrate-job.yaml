@@ -1,0 +1,72 @@
+# Aplica las migraciones de Alembic (crea/actualiza la tabla "files") y termina.
+# Se lanza una vez por versión, ANTES de desplegar o actualizar la API:
+#   kubectl delete job migrate -n core --ignore-not-found
+#   kubectl apply -f k8s/core/migrate-job.yaml
+#   kubectl wait --for=condition=complete job/migrate -n core --timeout=300s
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: core
+  labels:
+    app.kubernetes.io/name: file-storage-migrate
+    app.kubernetes.io/part-of: file-storage-service
+spec:
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 86400   # se borra solo al día siguiente
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: file-storage-migrate
+        app.kubernetes.io/part-of: file-storage-service
+    spec:
+      restartPolicy: Never
+      # Si la imagen está en un registro privado, descomenta y crea el Secret "ghcr" (ver README).
+      # imagePullSecrets:
+      #   - name: ghcr
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nodo
+                    operator: In
+                    values: ["1", "2", "3", "4"]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: migrate
+          image: ghcr.io/78spicy/file-storage-service:1.0.0
+          envFrom:
+            - configMapRef:
+                name: api-config
+            - secretRef:
+                name: api-secret
+          # Espera a que MySQL acepte conexiones (hasta ~2 min) y migra.
+          command:
+            - sh
+            - -c
+            - |
+              python - <<'PY'
+              import sys, time
+              from sqlalchemy import create_engine, text
+              from app.config import get_settings
+              engine = create_engine(get_settings().database_url)
+              for attempt in range(60):
+                  try:
+                      with engine.connect() as conn:
+                          conn.execute(text("SELECT 1"))
+                      sys.exit(0)
+                  except Exception as exc:
+                      print(f"Esperando a MySQL ({attempt + 1}/60): {exc.__class__.__name__}", flush=True)
+                      time.sleep(2)
+              sys.exit("MySQL no responde")
+              PY
+              alembic upgrade head
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
